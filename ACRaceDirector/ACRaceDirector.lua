@@ -7,6 +7,13 @@ local TcpClientModule = require("network/TcpClientModule")
 local UIRenderer = require("ui/UIRenderer")
 local SoundManager = require("sounds/SoundManager")
 Logger = require("others/Logger")
+local Localization = require("regional/Localization")
+
+-- Usando variável global para debug
+debug = false
+
+-- Inicializa sistema de localização
+Localization:initialize()
 
 -- Estado do App
 local state = {
@@ -14,7 +21,7 @@ local state = {
     client = nil,
     renderer = UIRenderer:new(),
     sound = SoundManager:new(),
-    connectionStatus = "Inicializando...",
+    connectionStatus = Localization:get("system.initializing"),
     init = false,
     connected = false,
     
@@ -29,7 +36,7 @@ local state = {
 
 -- Callback de mensagens de rede
 local function onNetworkMessage(msg)
-    Logger:log("[ACRaceDirector] " .. msg.message or tostring(msg))
+    Logger:log(Localization:get("log.acrd_message_format", msg.message or tostring(msg)))
 
     if msg.type == "clear" then
         state.notifications:clear()
@@ -53,11 +60,11 @@ end
 local function connectToServer(host, port)
     if state.client then return end -- Já tem cliente instanciado (fechar se necessário?)
 
-    Logger:log("[ACRaceDirector] Tentando conectar em " .. host .. ":" .. port)
+    Logger:log(Localization:get("system.connecting", host, port))
     state.notifications:add({
         type = "system",
         color = rgbm(1,1,1,1),
-        message = "Tentando conectar ao servidor ACRD em " .. host .. ":" .. port,
+        message = Localization:get("system.connecting", host, port),
         duration = 10
     })
 
@@ -65,10 +72,10 @@ local function connectToServer(host, port)
         host = host,
         port = port,
         onConnect = function() 
-            Logger:log("[ACRaceDirector] Conectado ao servidor.")
+            Logger:log(Localization:get("system.connected"))
         end,
         onDisconnect = function() 
-            Logger:log("[ACRaceDirector] Desconectado do servidor.")
+            Logger:log(Localization:get("system.disconnected"))
         end
     }, state.notifications)
     state.client:connect()
@@ -80,21 +87,21 @@ local function initialize()
     if state.init then return end
     state.init = true
     
-    Logger:log("[ACRaceDirector] Inicializando...")
+    Logger:log(Localization:get("log.acrd_initializing"))
     
     local sim = ac.getSim()
     
     if not sim.isOnlineRace then
         -- MODO OFFLINE
         state.isOfflineMode = true
-        state.connectionStatus = "Race Director não disponível offline"
-        Logger:log("[ACRaceDirector] Modo Offline detectado. Cliente não será executado.")
+        state.connectionStatus = Localization:get("status.race_director_unavailable")
+        Logger:log(Localization:get("system.offline_mode"))
     else
         -- MODO ONLINE
         state.isOfflineMode = false
         state.waitingForServer = true
-        state.connectionStatus = "Aguardando servidor..."
-        Logger:log("[ACRaceDirector] Modo Online. Tentando obter dados do servidor ACRD...")
+        state.connectionStatus = Localization:get("status.waiting")
+        Logger:log(Localization:get("system.online_mode"))
         
         -- Listener de Chat para descobrir servidor
         ac.onOnlineWelcome(function(msg, extraData)
@@ -110,18 +117,18 @@ local function initialize()
                     local port = tonumber(parts[3])
                     
                     if host and port then
-                        Logger:log("[ACRaceDirector] Obtido servidor ACRD no host: " .. host .. " / porta: " .. port)
+                        Logger:log(Localization:get("system.server_found", host, port))
                         connectToServer(host, port)
                     end
                 end
             else
-                Logger:log("[ACRaceDirector] Servidor não utiliza ACRD. Interrompendo inicialização.")
+                Logger:log(Localization:get("system.server_not_using_acrd"))
                 state.waitingForServer = false
-                state.connectionStatus = "ACRD não disponível neste servidor."
+                state.connectionStatus = Localization:get("status.acrd_unavailable")
                 state.notifications:add({
                     type = "system",
                     color = rgbm(1,1,1,1),
-                    message = "Servidor não utiliza ACRD. Interrompendo inicialização.",
+                    message = Localization:get("system.server_not_using_acrd"),
                     duration = 10
                 })
             end
@@ -153,14 +160,14 @@ local function updateAppLogic(dt)
         state.client:update(dt, state.notifications)
         
         if state.client:isConnected() then
-            state.connectionStatus = "Conectado"
+            state.connectionStatus = Localization:get("status.connected")
         else
             state.connected = false
-            state.connectionStatus = "Tentando conexão..."
+            state.connectionStatus = Localization:get("status.connecting")
             state.notifications:add({
                 type = "system",
                 color = rgbm(1,1,1,1),
-                message = "Tentando conexão.",
+                message = Localization:get("status.connecting"),
                 duration = 10
             })
         end
@@ -171,11 +178,11 @@ local function updateAppLogic(dt)
             onNetworkMessage(msg)
         end
     elseif state.waitingForServer then
-        state.connectionStatus = "Carregando Race Director..."
+        state.connectionStatus = Localization:get("status.loading")
         state.notifications:add({
             type = "system",
             color = rgbm(1,1,1,1),
-            message = "Carregando Race Director.",
+            message = Localization:get("status.loading"),
             duration = 10
         })
     end

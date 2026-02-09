@@ -1,5 +1,6 @@
 -- NotificationManager.lua
 -- Gerencia a lista de notificações, tempos de vida e cores
+local Localization = require("regional/Localization")
 
 local NotificationManager = {}
 NotificationManager.__index = NotificationManager
@@ -63,7 +64,7 @@ function NotificationManager:add(item)
         table.remove(self.items)
     end
     
-    Logger:log("[NotificationManager] Adicionada: " .. tostring(item.title))
+    Logger:log(Localization:get("log.notification_added", tostring(item.title or "System")))
 end
 
 function NotificationManager:update(dt)
@@ -86,7 +87,7 @@ function NotificationManager:clear()
             self.items[i].duration = 1
         end
     end
-    Logger:log("[NotificationManager] Limpar tudo")
+    Logger:log(Localization:get("log.notification_cleared"))
 end
 
 function NotificationManager:getAll()

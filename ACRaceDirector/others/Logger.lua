@@ -14,6 +14,9 @@ function Logger:new()
 end
 
 function Logger:log(message)
+
+    if not debug then return end
+
     if not message then 
         message = "nil"
     end
@@ -22,6 +25,16 @@ function Logger:log(message)
     ac.log(message)
     
     table.insert(self.messageLog, message)
+end
+
+function Logger:dumpAcObject()
+
+    if ac and os.clock() % 60000 then
+        for k, v in pairs(ac) do
+            ac.log(tostring(k)..":"..tostring(v))
+        end
+    end
+
 end
 
 function Logger:getLog()

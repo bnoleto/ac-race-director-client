@@ -2,6 +2,8 @@
 -- Cliente TCP usando a API shared/socket do Custom Shaders Patch
 
 local socket = require('shared/socket')
+local Localization = require("regional/Localization")
+local Logger = require("others/Logger")
 
 local TcpClient = {
     host = "127.0.0.1",
@@ -67,13 +69,13 @@ function TcpClient:connect()
         return true
     end
     
-    Logger:log("[TcpClient] Iniciando conexão com " .. self.host .. ":" .. self.port)
+    Logger:log(Localization:get("log.tcp_connecting", self.host, self.port))
     
     -- Cria conexão TCP
     self.connection = socket.tcp()
     
     if not self.connection then
-        Logger:log("[TcpClient] Erro ao criar socket TCP")
+        Logger:log(Localization:get("log.tcp_create_error"))
         return false
     end
     
@@ -93,11 +95,11 @@ function TcpClient:connect()
         -- Conexão iniciada, aguardando handshake
         self.state = "CONNECTING"
         self.connectTimeoutTimer = 0
-        Logger:log("[TcpClient] Conexão em andamento...")
+        Logger:log(Localization:get("log.tcp_connection_in_progress"))
         return true
     else
         -- Erro real
-        Logger:log("[TcpClient] Erro imediato ao conectar: " .. tostring(err))
+        Logger:log(Localization:get("log.tcp_connect_error_immediate", tostring(err)))
         self:disconnect()
         return false
     end
@@ -108,21 +110,21 @@ function TcpClient:setConnected()
     
     self.state = "CONNECTED"
     self.lastKeepAliveTime = os.clock() -- Reseta timer de keepalive ao conectar
-    Logger:log("[TcpClient] Conexão estabelecida com sucesso!")
+    Logger:log(Localization:get("log.tcp_connected_success"))
     
     -- Envia Handshake para o servidor
     if self.connection then
         local sent, err = self.connection:send("HANDSHAKE:AC_CLIENT_V1:"..ac.getDriverName(0).."\r\n")
         if sent then
-            Logger:log("[TcpClient] Handshake enviado: " .. sent .. " bytes.")
+            Logger:log(Localization:get("log.tcp_handshake_sent", sent))
             self.notifications:add({
                 type = "system",
                 color = rgbm(0,1,0,1),
-                message = "Conectado.",
+                message = Localization:get("notif.connected"),
                 duration = 10
             })
         else
-            Logger:log("[TcpClient] Erro ao enviar handshake: " .. tostring(err) .. ". Tentando novamente em breve...")
+            Logger:log(Localization:get("log.tcp_handshake_error", tostring(err)))
             -- Se falhou (timeout/wouldblock), agendamos uma retentativa rápida via update()
             -- Mas aqui, como estamos assumindo conectado, talvez devêssemos forçar um envio no próximo update
             self.handshakePending = true 
@@ -151,7 +153,7 @@ function TcpClient:disconnect()
     self.reconnectTimer = 0 -- Reset timer para começar a contar do zero
     
     if wasConnected then
-        Logger:log("[TcpClient] Desconectado.")
+        Logger:log(Localization:get("log.tcp_disconnected"))
         if self.onDisconnect then
             self.onDisconnect()
         end
@@ -201,7 +203,7 @@ function TcpClient:update(dt, notifications)
             -- Se passou do tempo e não deu erro (o socket não fechou), 
             -- mas o select não retornou writable...
             -- O servidor diz que conectou. Vamos assumir conectado e deixar o receive falhar se for mentira.
-            Logger:log("[TcpClient] Timeout de handshake, mas forçando estado CONECTADO (fallback).")
+            Logger:log(Localization:get("log.tcp_handshake_timeout"))
             self:setConnected()
             return
         end
@@ -211,14 +213,14 @@ function TcpClient:update(dt, notifications)
         if self.handshakePending then
              local sent, err = self.connection:send("HANDSHAKE:AC_CLIENT_V1:"..ac.getDriverName(0).."\r\n")
              if sent then
-                 Logger:log("[TcpClient] Handshake reenviado com sucesso.")
+                 Logger:log(Localization:get("log.tcp_handshake_resent"))
                  self.handshakePending = false
              end
         end
 
         -- Verifica KeepAlive
         if os.clock() - self.lastKeepAliveTime > self.keepAliveTimeout then
-            Logger:log("[TcpClient] Timeout de conexão (sem PING do servidor).")
+            Logger:log(Localization:get("log.tcp_timeout_no_ping"))
             self:disconnect()
             return
         end
@@ -240,7 +242,7 @@ function TcpClient:receiveMessages()
         -- Tenta ler mais
         self:receiveMessages()
     elseif err == "closed" then
-        Logger:log("[TcpClient] Socket fechado pelo servidor.")
+        Logger:log(Localization:get("log.tcp_socket_closed"))
         self:disconnect()
     elseif err == "timeout" then
         -- Normal, sem dados
@@ -248,7 +250,7 @@ function TcpClient:receiveMessages()
             self.receiveBuffer = self.receiveBuffer .. partial
         end
     else
-        Logger:log("[TcpClient] Erro de recepção: " .. tostring(err))
+        Logger:log(Localization:get("log.tcp_receive_error", tostring(err)))
         self:disconnect()
     end
 end
@@ -279,12 +281,12 @@ function TcpClient:processMessage(message)
         
         -- Mapeamentos simples
         local map = {
-            YELLOW = { type="yellow", title="BANDEIRA AMARELA" },
-            RED = { type="red", title="BANDEIRA VERMELHA" },
-            GREEN = { type="green", title="BANDEIRA VERDE" },
-            SC = { type="safety", title="SAFETY CAR" },
-            VSC = { type="vsc", title="VIRTUAL SAFETY CAR" },
-            RACE = { type="race", title="DIREÇÃO DE PROVA" },
+            YELLOW = { type="yellow", title=Localization:get("flag.yellow"), message = Localization:get("notif.yellow") },
+            RED = { type="red", title=Localization:get("flag.red"), message = Localization:get("notif.red") },
+            GREEN = { type="green", title=Localization:get("flag.green"), message = Localization:get("notif.green") },
+            SC = { type="safety", title=Localization:get("flag.safety_car"), message = Localization:get("notif.sc") },
+            VSC = { type="vsc", title=Localization:get("flag.virtual_safety_car"), message = Localization:get("notif.vsc") },
+            RACE = { type="race", title=Localization:get("flag.race_control"), message = msgText },
             CLEAR = { type="clear" },
             PING = { type="ping" } -- Comando interno
         }
@@ -303,7 +305,7 @@ function TcpClient:processMessage(message)
             parsedData = {
                 type = info.type,
                 title = info.title,
-                message = msgText,
+                message = info.message,
                 duration = duration,
                 showInChat = true
             }

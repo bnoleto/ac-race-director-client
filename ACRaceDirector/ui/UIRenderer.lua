@@ -60,10 +60,14 @@ function UIRenderer:new()
 end
 
 -- Desenha APENAS a janela de configuração
+local Localization = require("regional/Localization")
+
+-- Desenha APENAS a janela de configuração
 function UIRenderer:drawConfig(connectionStatus, isConnected, host, port)
+
     -- Status de Conexão
     if isConnected then
-        ui.textColored("● Conectado (" .. host .. ":" .. port .. ")", rgbm(0, 1, 0, 1))
+        ui.textColored(Localization:get("ui.connected_full", host, port), rgbm(0, 1, 0, 1))
     else
         ui.textColored("● " .. connectionStatus, rgbm(1, 0, 0, 1))
     end
@@ -71,28 +75,66 @@ function UIRenderer:drawConfig(connectionStatus, isConnected, host, port)
     ui.newLine()
 
     ui.separator()
-    
-    -- Log de Debug
-    ui.newLine()
-    ui.text("Log de Mensagens:")
-    ui.sameLine()
-    local clicked = ui.button("Copiar para a área de transferência")
 
-    if clicked then
-        local log = ""
-        for _, entry in ipairs(Logger:getLog()) do
-            log = log .. entry .. "\n"
+    -- Seletor de Idioma
+    ui.newLine()
+    
+    ui.text(Localization:get("ui.language_label"))
+    ui.sameLine()
+    
+    -- Constrói lista para o Combo
+    local supported = Localization.supportedLanguages or {}
+    local items = {}
+    local currentItem = 1
+    
+    -- Finding current item index
+    for i, lang in ipairs(supported) do
+        table.insert(items, lang.name)
+        if lang.id == Localization.currentLanguage then
+            currentItem = i -- ui.combo é 0-indexed
         end
-        ac.setClipboardText(log)
+    end
+
+    -- ui.combo(label, current_item, items) -> returns new_item, changed
+    local newItem, changed = ui.combo("##language", currentItem, ui.ComboFlags.None, items)
+    
+    if changed then
+        -- newItem também é 0-indexed
+        local selectedLang = supported[newItem]
+        
+        if selectedLang and selectedLang.id ~= Localization.currentLanguage then
+            Logger:log(Localization:get("ui.changing_language", selectedLang.id))
+            Localization:load(selectedLang.id)
+        end
     end
 
     ui.newLine()
+    ui.separator()
+    ui.newLine()
+    
+    if debug then
+        -- Log de Debug
+        ui.newLine()
+        ui.text(Localization:get("ui.log_label"))
+        ui.sameLine()
+        local clicked = ui.button(Localization:get("ui.copy_clipboard"))
 
-    ui.childWindow("messageLog", vec2(0, 100), function()
-        for _, entry in ipairs(Logger:getLog()) do
-            ui.text(entry)
+        if clicked then
+            local log = ""
+            for _, entry in ipairs(Logger:getLog()) do
+                log = log .. entry .. "\n"
+            end
+            ac.setClipboardText(log)
         end
-    end)
+
+        ui.newLine()
+
+        ui.childWindow("messageLog", vec2(0, 100), function()
+            for _, entry in ipairs(Logger:getLog()) do
+                ui.text(entry)
+            end
+        end)
+    end
 end
 
 function UIRenderer:drawHUD(notificationsState, isConnected)
@@ -103,12 +145,12 @@ function UIRenderer:drawHUD(notificationsState, isConnected)
         notificationsState:add({
             type = "system",
             color = rgbm(1,1,1,1),
-            message = "Sem mensagens da Direção de Corrida.",
+            message = Localization:get("ui.no_messages"),
             duration = -1
         })
     elseif #notifications > 1 then
         for i, notif in ipairs(notifications) do
-            if notif.message == "Sem mensagens da Direção de Corrida." then
+            if notif.message == Localization:get("ui.no_messages") then
                 notificationsState:remove(i)
             end
         end
@@ -208,7 +250,7 @@ function UIRenderer:drawContent(notif)
         if notif.type == "vsc" then
             local velAtual = ac.getCar(0).speedKmh
             local velLimite = 80
-            local velLimiteStr = "Velocidade atual: " .. math.floor(velAtual) .. " km/h"
+            local velLimiteStr = Localization:get("ui.current_speed", math.floor(velAtual))
 
             if velAtual > velLimite and math.floor(os.clock()*(1000/400)) % 2 == 1 then
                 ui.textColored(velLimiteStr, rgbm(1,0,0,1))

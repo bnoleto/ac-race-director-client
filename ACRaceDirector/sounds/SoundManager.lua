@@ -1,5 +1,4 @@
--- SoundManager.lua
--- Gerencia a reprodução de áudios para notificações
+local Localization = require("regional/Localization")
 
 local SoundManager = {}
 SoundManager.__index = SoundManager
@@ -31,7 +30,7 @@ function SoundManager:play(soundName)
         -- O garbage collector do Lua/CSP deve lidar com isso ou o evento morre ao terminar
         self.cooldown = 0.5
     else
-        Logger:log("[SoundManager] Falha ao carregar áudio: " .. filename)
+        Logger:log(Localization:get("log.sound_load_error", filename))
     end
 end
 
